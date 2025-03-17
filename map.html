@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Tracker & Route Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  
+    <style>
+        #map { height: 500px; }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center p-4">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+        #map {
+            width: 100%;
+            height: 500px;
+            border: 2px solid black;
+        }
+    
+        #directions {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #ccc;
+        }
+    
+        #compass {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+    
+    <h2>Live Navigation Map</h2>
+    <p>Click on the map to select a destination!</p>
+    
+    <p>📍 <strong>Your Current Location:</strong>
+        Latitude: <span id="user-lat">Loading...</span>,
+        Longitude: <span id="user-lng">Loading...</span>
+    </p>
+    
+    <p>📍 <strong>Destination:</strong>
+        Latitude: <span id="dest-lat">None</span>,
+        Longitude: <span id="dest-lng">None</span>
+    </p>
+    
+    <div id="map"></div>
+    <div id="compass">🔄 Direction: <span id="direction">0</span>°</div>
+    <div id="directions"><strong>Directions:</strong>
+        <ul id="directions-list"></ul>
+    </div>
+    
+    <!-- Leaflet & Routing Libraries -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    
+    <script>
+        let map, userMarker, destinationMarker, routeControl;
+        let userLat, userLng;
+    
+        function getUserLocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    function(position) {
+                        userLat = position.coords.latitude;
+                        userLng = position.coords.longitude;
+    
+                        document.getElementById("user-lat").textContent = userLat.toFixed(6);
+                        document.getElementById("user-lng").textContent = userLng.toFixed(6);
+    
+                        if (!map) {
+                            initMap(userLat, userLng);
+                        } else {
+                            userMarker.setLatLng([userLat, userLng]);
+                            updateRoute();
+                        }
+                    },
+                    function(error) {
+                        alert("Error getting location: " + error.message);
+                    }, {
+                        enableHighAccuracy: true
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+    
+        function initMap(lat, lng) {
+            map = L.map('map').setView([lat, lng], 14);
+    
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+    
+            userMarker = L.marker([lat, lng], {
+                    draggable: false
+                }).addTo(map)
+                .bindPopup("You are here!")
+                .openPopup();
+    
+            map.on('click', function(e) {
+                let destLat = e.latlng.lat;
+                let destLng = e.latlng.lng;
+    
+                document.getElementById("dest-lat").textContent = destLat.toFixed(6);
+                document.getElementById("dest-lng").textContent = destLng.toFixed(6);
+    
+                if (destinationMarker) {
+                    map.removeLayer(destinationMarker);
+                }
+    
+                destinationMarker = L.marker([destLat, destLng]).addTo(map)
+                    .bindPopup("Destination")
+                    .openPopup();
+    
+                drawRoute(userLat, userLng, destLat, destLng);
+            });
+        }
+    
+        function drawRoute(startLat, startLng, endLat, endLng) {
+            if (routeControl) {
+                map.removeControl(routeControl);
+            }
+    
+            routeControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(startLat, startLng),
+                    L.latLng(endLat, endLng)
+                ],
+                routeWhileDragging: true,
+                createMarker: function() {
+                    return null;
+                }
+            }).addTo(map);
+    
+            routeControl.on('routesfound', function(e) {
+                let routes = e.routes[0].instructions;
+                displayDirections(routes);
+            });
+        }
+    
+        function updateRoute() {
+            let destLat = parseFloat(document.getElementById("dest-lat").textContent);
+            let destLng = parseFloat(document.getElementById("dest-lng").textContent);
+    
+            if (!isNaN(destLat) && !isNaN(destLng) && routeControl) {
+                drawRoute(userLat, userLng, destLat, destLng);
+            }
+        }
+    
+        function displayDirections(instructions) {
+            let directionsList = document.getElementById("directions-list");
+            directionsList.innerHTML = "";
+    
+            instructions.forEach(instruction => {
+                let directionText = instruction.text;
+                let listItem = document.createElement("li");
+                listItem.textContent = "⬆️ " + directionText;
+                directionsList.appendChild(listItem);
+            });
+        }
+    
+        function updateCompass(event) {
+            let direction = event.alpha;
+            document.getElementById("direction").textContent = Math.round(direction);
+        }
+    
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener("deviceorientation", updateCompass, true);
+        } else {
+            document.getElementById("compass").textContent = "Compass not supported";
+        }
+    
+        getUserLocation();
+    </script>
+</body>
+</html>
