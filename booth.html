@@ -39,12 +39,7 @@
                 <!-- Camera View with Frame -->
                 <div id="camera-frame" class="relative w-[35em] h-auto border-8 border-gray-800 rounded-xl shadow-lg overflow-hidden flex items-center justify-center">
                     <video id="video" autoplay class="w-full h-full"></video>
-                    <canvas
-                        id="canvas"
-                        width="320"
-                        height="240"
-                        class="hidden"
-                    ></canvas>
+                    <canvas id="canvas" width="320" height="240" class="hidden"></canvas>
                 </div>
                 <!-- Action Buttons -->
                 <div class="mt-4 space-x-2">
@@ -67,17 +62,28 @@
         const cameraFrame = document.getElementById("camera-frame");
 
         function startCamera() {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => video.srcObject = stream)
-                .catch(err => console.error("Error accessing camera: ", err));
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user" } // Use Front Camera
+            })
+            .then(stream => {
+                video.srcObject = stream;
+                video.style.transform = "scaleX(-1)"; // Mirror Effect for Face Alignment
+            })
+            .catch(err => console.error("Error accessing camera: ", err));
         }
 
         function capturePhoto() {
             if (images.length >= 5) return;
 
             const ctx = canvas.getContext("2d");
+            ctx.save();
             ctx.filter = getFilter();
+
+            // Flip canvas back to normal (since video is mirrored)
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
 
             const imageData = canvas.toDataURL("image/png");
             images.push({ src: imageData, frame: frameSelect.value });
