@@ -1,117 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo Booth</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-</head>
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
-    <h1 class="text-2xl font-bold mb-4">📸 Photo Booth</h1>
-    
-    <div class="relative w-96 h-72 border-2 border-white rounded-lg overflow-hidden">
-        <video id="video" autoplay class="w-full h-full"></video>
-        <canvas id="canvas" class="absolute top-0 left-0 hidden"></canvas>
-        <img id="frame" class="absolute top-0 left-0 w-full h-full hidden"/>
-    </div>
-    
-    <div class="mt-4 flex gap-4 items-center">
-        <button id="capture" class="px-4 py-2 bg-blue-500 rounded flex items-center gap-2">
-            <i class="ph ph-camera"></i> Capture
-        </button>
-        <button id="download" class="px-4 py-2 bg-green-500 rounded hidden flex items-center gap-2">
-            <i class="ph ph-download"></i> Download
-        </button>
-        
-        <div class="flex items-center gap-2 bg-gray-700 px-2 py-1 rounded">
-            <i class="ph ph-magic-wand"></i>
-            <select id="filter" class="bg-gray-700 text-white">
-                <option value="none">No Filter</option>
-                <option value="grayscale(100%)">Grayscale</option>
-                <option value="sepia(100%)">Sepia</option>
-                <option value="invert(100%)">Invert</option>
-                <option value="brightness(150%)">Brightness</option>
-                <option value="contrast(200%)">Contrast</option>
-            </select>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PhotoBooth</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="flex flex-col items-center bg-gray-100 min-h-screen p-6">
+        <h1 class="text-2xl font-bold mb-4">📸 Fancy PhotoBooth</h1>
+        <!-- Controls -->
+        <div class="flex justify-center items-center gap-6 mb-4">
+            <!-- Filter Selection -->
+            <div>
+                <label class="font-semibold">Select Filter:</label>
+                <select id="filter" class="mt-2 px-4 py-2 border rounded shadow bg-white">
+                    <option value="none">No Filter</option>
+                    <option value="grayscale">Grayscale</option>
+                    <option value="sepia">Sepia</option>
+                    <option value="blur">Blur</option>
+                    <option value="brightness">Brightness</option>
+                    <option value="contrast">Contrast</option>
+                    <option value="invert">Invert</option>
+                </select>
+            </div>
+            <!-- Frame Selection -->
+            <div>
+                <label class="font-semibold">Select Frame:</label>
+                <select id="frame" class="mt-2 px-4 py-2 border rounded shadow bg-white">
+                    <option value="border-gray-800">Classic</option>
+                    <option value="border-red-500">Red Frame</option>
+                    <option value="border-blue-500">Blue Frame</option>
+                    <option value="border-green-500">Green Frame</option>
+                </select>
+            </div>
         </div>
-        
-        <div class="flex items-center gap-2 bg-gray-700 px-2 py-1 rounded">
-            <i class="ph ph-frame-corners"></i>
-            <select id="frameSelect" class="bg-gray-700 text-white">
-                <option value="none">No Frame</option>
-                <option value="frame1.png">Frame 1</option>
-                <option value="frame2.png">Frame 2</option>
-                <option value="frame3.png">Frame 3</option>
-            </select>
+        <!-- Camera View with Frame -->
+        <div id="camera-frame" class="relative w-[35em] h-auto border-8 border-gray-800 rounded-xl shadow-lg overflow-hidden flex items-center justify-center">
+            <video id="video" autoplay class="w-full h-full"></video>
+            <canvas id="canvas" width="320" height="240" class="hidden"></canvas>
         </div>
-    </div>
-    
-    <div class="mt-4 grid grid-cols-5 gap-2" id="gallery"></div>
-    
-    <script>
+        <!-- Action Buttons -->
+        <div class="mt-4 space-x-2">
+            <button onclick="startCamera()" class="px-4 py-2 bg-blue-500 text-white rounded shadow">🎥 Start Camera</button>
+            <button onclick="capturePhoto()" class="px-4 py-2 bg-green-500 text-white rounded shadow">📷 Capture</button>
+        </div>
+        <!-- Captured Photos -->
+        <div id="photo-grid" class="grid grid-cols-5 gap-2 mt-6"></div>
+        <script>
+        let images = [];
         const video = document.getElementById("video");
         const canvas = document.getElementById("canvas");
-        const captureButton = document.getElementById("capture");
-        const downloadButton = document.getElementById("download");
+        const photoGrid = document.getElementById("photo-grid");
         const filterSelect = document.getElementById("filter");
-        const frameSelect = document.getElementById("frameSelect");
-        const frame = document.getElementById("frame");
-        const ctx = canvas.getContext("2d");
-        const gallery = document.getElementById("gallery");
-        let capturedImages = [];
-        
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => video.srcObject = stream)
-            .catch(error => console.error("Camera access denied!", error));
-        
-        // Apply filter to live video preview
-        filterSelect.addEventListener("change", () => {
-            video.style.filter = filterSelect.value;
-        });
-        
-        // Apply frame
-        frameSelect.addEventListener("change", () => {
-            if (frameSelect.value === "none") {
-                frame.classList.add("hidden");
-            } else {
-                frame.src = frameSelect.value;
-                frame.classList.remove("hidden");
-            }
-        });
-        
-        captureButton.addEventListener("click", () => {
-            if (capturedImages.length >= 5) {
-                alert("You can only capture up to 5 photos.");
-                return;
-            }
-            
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.filter = filterSelect.value;
+        const frameSelect = document.getElementById("frame");
+        const cameraFrame = document.getElementById("camera-frame");
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => video.srcObject = stream)
+                .catch(err => console.error("Error accessing camera: ", err));
+        }
+
+        function capturePhoto() {
+            if (images.length >= 5) return;
+
+            const ctx = canvas.getContext("2d");
+            ctx.filter = getFilter();
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            if (!frame.classList.contains("hidden")) {
-                ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL("image/png");
+            images.push({ src: imageData, frame: frameSelect.value });
+            displayImages();
+        }
+
+        function getFilter() {
+            switch (filterSelect.value) {
+                case "grayscale": return "grayscale(100%)";
+                case "sepia": return "sepia(100%)";
+                case "blur": return "blur(5px)";
+                case "brightness": return "brightness(1.5)";
+                case "contrast": return "contrast(1.5)";
+                case "invert": return "invert(100%)";
+                default: return "none";
             }
-            
-            const img = document.createElement("img");
-            img.src = canvas.toDataURL("image/png");
-            img.classList.add("w-20", "h-20", "border-2", "border-white", "rounded");
-            gallery.appendChild(img);
-            capturedImages.push(img);
-            
-            canvas.classList.remove("hidden");
-            video.classList.add("hidden");
-            downloadButton.classList.remove("hidden");
-        });
-        
-        downloadButton.addEventListener("click", () => {
+        }
+
+        function displayImages() {
+            photoGrid.innerHTML = "";
+            images.forEach((img, index) => {
+                const photoFrame = document.createElement("div");
+                photoFrame.className = `border-8 ${img.frame} p-1 rounded-lg shadow-lg bg-white flex flex-col items-center`;
+
+                const image = document.createElement("img");
+                image.src = img.src;
+                image.className = "w-20 h-20 object-cover rounded-lg";
+
+                const downloadBtn = document.createElement("button");
+                downloadBtn.innerText = "⬇️ Download";
+                downloadBtn.className = "bg-blue-600 text-white text-xs px-2 py-1 mt-1 rounded";
+                downloadBtn.onclick = () => downloadImage(img.src, index);
+
+                photoFrame.appendChild(image);
+                photoFrame.appendChild(downloadBtn);
+                photoGrid.appendChild(photoFrame);
+            });
+        }
+
+        function downloadImage(image, index) {
             const link = document.createElement("a");
-            link.href = canvas.toDataURL("image/png");
-            link.download = "photo_booth.png";
+            link.href = image;
+            link.download = `photo_${index + 1}.png`;
             link.click();
+        }
+
+        // Apply Filter Live
+        filterSelect.addEventListener("change", () => {
+            video.style.filter = getFilter();
         });
-    </script>
-</body>
+
+        // Apply Frame Live
+        frameSelect.addEventListener("change", () => {
+            cameraFrame.className = `relative w-[35em] h-auto border-8 ${frameSelect.value} rounded-xl shadow-lg overflow-hidden flex items-center justify-center`;
+        });
+        </script>
+    </body>
 </html>
