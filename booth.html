@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Booth</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
+    <h1 class="text-2xl font-bold mb-4">📸 Photo Booth</h1>
+    
+    <div class="relative w-96 h-72 border-2 border-white rounded-lg overflow-hidden">
+        <video id="video" autoplay class="w-full h-full"></video>
+        <canvas id="canvas" class="absolute top-0 left-0 hidden"></canvas>
+        <img id="frame" class="absolute top-0 left-0 w-full h-full hidden"/>
+    </div>
+    
+    <div class="mt-4 flex gap-4 items-center">
+        <button id="capture" class="px-4 py-2 bg-blue-500 rounded flex items-center gap-2">
+            <i class="ph ph-camera"></i> Capture
+        </button>
+        <button id="download" class="px-4 py-2 bg-green-500 rounded hidden flex items-center gap-2">
+            <i class="ph ph-download"></i> Download
+        </button>
+        
+        <div class="flex items-center gap-2 bg-gray-700 px-2 py-1 rounded">
+            <i class="ph ph-magic-wand"></i>
+            <select id="filter" class="bg-gray-700 text-white">
+                <option value="none">No Filter</option>
+                <option value="grayscale(100%)">Grayscale</option>
+                <option value="sepia(100%)">Sepia</option>
+                <option value="invert(100%)">Invert</option>
+                <option value="brightness(150%)">Brightness</option>
+                <option value="contrast(200%)">Contrast</option>
+            </select>
+        </div>
+        
+        <div class="flex items-center gap-2 bg-gray-700 px-2 py-1 rounded">
+            <i class="ph ph-frame-corners"></i>
+            <select id="frameSelect" class="bg-gray-700 text-white">
+                <option value="none">No Frame</option>
+                <option value="frame1.png">Frame 1</option>
+                <option value="frame2.png">Frame 2</option>
+                <option value="frame3.png">Frame 3</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="mt-4 grid grid-cols-5 gap-2" id="gallery"></div>
+    
+    <script>
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const captureButton = document.getElementById("capture");
+        const downloadButton = document.getElementById("download");
+        const filterSelect = document.getElementById("filter");
+        const frameSelect = document.getElementById("frameSelect");
+        const frame = document.getElementById("frame");
+        const ctx = canvas.getContext("2d");
+        const gallery = document.getElementById("gallery");
+        let capturedImages = [];
+        
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => video.srcObject = stream)
+            .catch(error => console.error("Camera access denied!", error));
+        
+        // Apply filter to live video preview
+        filterSelect.addEventListener("change", () => {
+            video.style.filter = filterSelect.value;
+        });
+        
+        // Apply frame
+        frameSelect.addEventListener("change", () => {
+            if (frameSelect.value === "none") {
+                frame.classList.add("hidden");
+            } else {
+                frame.src = frameSelect.value;
+                frame.classList.remove("hidden");
+            }
+        });
+        
+        captureButton.addEventListener("click", () => {
+            if (capturedImages.length >= 5) {
+                alert("You can only capture up to 5 photos.");
+                return;
+            }
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.filter = filterSelect.value;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            if (!frame.classList.contains("hidden")) {
+                ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+            }
+            
+            const img = document.createElement("img");
+            img.src = canvas.toDataURL("image/png");
+            img.classList.add("w-20", "h-20", "border-2", "border-white", "rounded");
+            gallery.appendChild(img);
+            capturedImages.push(img);
+            
+            canvas.classList.remove("hidden");
+            video.classList.add("hidden");
+            downloadButton.classList.remove("hidden");
+        });
+        
+        downloadButton.addEventListener("click", () => {
+            const link = document.createElement("a");
+            link.href = canvas.toDataURL("image/png");
+            link.download = "photo_booth.png";
+            link.click();
+        });
+    </script>
+</body>
+</html>
